@@ -1,0 +1,196 @@
+name: ✅ CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '20'
+  COVERAGE_THRESHOLD: 80
+
+jobs:
+  # 🧪 Tests et qualité
+  test:
+    name: 🧪 Tests & Coverage
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run unit tests
+        run: npm run test:unit
+
+      - name: 🔗 Run integration tests
+        run: npm run test:integration
+
+      - name: ⚙️ Run functional tests
+        run: npm test
+
+      - name: 🌐 Run E2E tests
+        run: npm run test:e2e
+
+      - name: 📊 Generate coverage report
+        run: npm run test:coverage
+
+      - name: 🎯 Check coverage threshold
+        run: |
+          COVERAGE=$(npm run test:coverage --silent --passWithNoTests | grep -oP 'All files\s+\|\s+\K\d+(?=\.\d*\s+\|)' || echo "0")
+          echo "📊 Coverage: ${COVERAGE}%"
+          echo "🎯 Required: ${COVERAGE_THRESHOLD}%"
+          
+          if [ "${COVERAGE}" -lt "${COVERAGE_THRESHOLD}" ]; then
+            echo "❌ Coverage ${COVERAGE}% is below ${COVERAGE_THRESHOLD}% threshold"
+            exit 1
+          else
+            echo "✅ Coverage ${COVERAGE}% meets ${COVERAGE_THRESHOLD}% threshold"
+          fi
+
+      - name: 📤 Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  # 🔍 Qualité du code
+  quality:
+    name: 🔍 Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run ESLint (if configured)
+        run: |
+          if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ]; then
+            echo "🔍 Running ESLint..."
+            npx eslint src/ tests/
+          else
+            echo "✅ ESLint not configured, skipping..."
+          fi
+        continue-on-error: false
+
+  # 🔒 Sécurité
+  security:
+    name: 🔒 Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔒 Run security audit
+        run: |
+          echo "🔍 Checking for security vulnerabilities..."
+          npm audit --audit-level moderate
+          echo "✅ Security audit completed"
+
+      - name: 🛡️ Check production vulnerabilities
+        run: |
+          echo "🛡️ Checking production dependencies..."
+          npm audit --audit-level high --production
+          echo "✅ Production security check completed"
+
+  # 🏗️ Build verification
+  build:
+    name: 🏗️ Build & Smoke Test
+    runs-on: ubuntu-latest
+    needs: [test, quality, security]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build verification
+        run: |
+          echo "🔍 Verifying application syntax..."
+          node -c src/app.js
+          echo "✅ Build verification successful"
+
+      - name: 💨 Smoke test
+        run: |
+          echo "🚀 Starting application for smoke test..."
+          timeout 30s npm start &
+          APP_PID=$!
+          sleep 10
+          
+          echo "🏥 Testing health endpoint..."
+          curl -f http://localhost:3000/health
+          
+          echo "💱 Testing conversion endpoint..."
+          curl -f "http://localhost:3000/convert?from=EUR&to=USD&amount=100"
+          
+          echo "🧾 Testing VAT endpoint..."
+          curl -f "http://localhost:3000/tva?ht=100&taux=20"
+          
+          echo "💸 Testing discount endpoint..."
+          curl -f "http://localhost:3000/remise?prix=100&pourcentage=10"
+          
+          kill $APP_PID 2>/dev/null || true
+          echo "✅ Smoke tests passed"
+
+  # 🎉 Notification de succès
+  notify:
+    name: 🔔 Success Notification
+    runs-on: ubuntu-latest
+    needs: [test, quality, security, build]
+    if: success()
+
+    steps:
+      - name: 🎉 All checks passed!
+        run: |
+          echo "🎉 All pipeline checks passed successfully!"
+          echo "📋 Summary:"
+          echo "  ✅ Tests: Passed"
+          echo "  ✅ Code Quality: Passed" 
+          echo "  ✅ Security: Passed"
+          echo "  ✅ Build: Passed"
+          echo "  📊 Repository: ${{ github.repository }}"
+          echo "  🌿 Branch: ${{ github.ref_name }}"
+          echo "  📝 Commit: ${{ github.sha }}"
+          echo "  👤 Author: ${{ github.actor }}"
