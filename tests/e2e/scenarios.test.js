@@ -59,9 +59,10 @@ describe('End-to-End Scenarios', () => {
             expect(tvaResponse.body.ttc).toBe(816);
 
             // Vérification du workflow complet
+// Vérifications du workflow complet
             const finalAmount = tvaResponse.body.ttc;
-            expect(finalAmount).toBeLessThan(conversionResponse.body.convertedAmount); // Après remise
-            expect(finalAmount).toBeGreaterThan(discountResponse.body.prixFinal); // Après TVA
+            expect(finalAmount).toBeGreaterThan(discountResponse.body.prixFinal); // Prix final > prix après remise (à cause de la TVA)
+            expect(discountResponse.body.prixFinal).toBeLessThan(conversionResponse.body.convertedAmount); // Prix après remise < prix converti initial
         });
     });
 
