@@ -8,7 +8,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  COVERAGE_THRESHOLD: 80
+  COVERAGE_THRESHOLD: 90
 
 jobs:
   # 🧪 Tests et qualité

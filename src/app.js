@@ -1,21 +1,21 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const { errorHandler } = require('./middleware/errorHandler');
 
 const conversionRoutes = require('./routes/conversion');
 const tvaRoutes = require('./routes/tva');
 const remiseRoutes = require('./routes/remise');
-const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware de sécurité
+// Middlewares globaux
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Définition des routes
 app.use('/', conversionRoutes);
 app.use('/', tvaRoutes);
 app.use('/', remiseRoutes);
@@ -29,9 +29,6 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Gestion des erreurs
-app.use(errorHandler);
-
 // Gestion des routes non trouvées
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -40,7 +37,10 @@ app.use('*', (req, res) => {
     });
 });
 
-// Démarrage du serveur
+// Middleware global de gestion des erreurs (doit être le dernier)
+app.use(errorHandler);
+
+// Démarrage du serveur (lorsqu'exécuté directement)
 if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

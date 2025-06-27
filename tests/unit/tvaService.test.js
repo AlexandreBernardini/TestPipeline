@@ -138,5 +138,19 @@ describe('TvaService - Unit Tests', () => {
             expect(() => calculateHT('invalid', 20))
                 .toThrow('Le montant TTC doit être un nombre positif');
         });
+
+        test('should throw error for invalid tax rate in calculateHT', () => {
+            expect(() => calculateHT(120, 'invalid'))
+                .toThrow('Le taux de TVA doit être un nombre entre 0 et 100');
+        });
+
+        test('should handle edge case with very high tax rate', () => {
+            const result = calculateHT(200, 100);
+
+            expect(result.ttc).toBe(200);
+            expect(result.taux).toBe(100);
+            expect(result.ht).toBe(100);
+            expect(result.montantTva).toBe(100);
+        });
     });
 });
